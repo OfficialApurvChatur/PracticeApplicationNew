@@ -1,0 +1,296 @@
+﻿import express from 'express';
+
+import catchAsyncMiddleware from '../../../../../bLove/bMiddleware/bCatchAsyncMiddleware';
+import cacheCreateMiddleware from '../../../../../bLove/bMiddleware/kCacheCreateMiddleware';
+import cacheDeleteMiddleware from '../../../../../bLove/bMiddleware/lCacheDeleteMiddleware';
+import deleteImageMiddleware from '../../../../../bLove/bMiddleware/pDeleteImageMiddleware';
+import eventCreateMiddleware from '../../../../../bLove/bMiddleware/mEventCreateMiddleware';
+import emailToCompanyMiddleware from '../../../../../bLove/bMiddleware/nEmailToCompanyMiddleware';
+import emailToUserMiddleware from '../../../../../bLove/bMiddleware/oEmailToUserMiddleware';
+import cacheVariable from '../../../../../bLove/eVariable/aCacheVariable';
+import eventVariable from '../../../../../bLove/eVariable/bEventVariable';
+import emailToCompanyVariable from '../../../../../bLove/eVariable/cEmailToCompanyVariable';
+import emailToUserVariable from '../../../../../bLove/eVariable/dEmailToUserVariable';
+import generateCookieUtility from '../../../../cUtility/fGenerateCookieUtility';
+import ErrorUtility from "../../../../cUtility/aErrorUtility";
+
+import { SignInModel } from '../../../aModel/aDatabaseManagement/cUserAuthentication/aSignInModel';
+import { UserModel } from '../../../aModel/aDatabaseManagement/bUserAdministration/eUserModel';
+
+
+const signInController = (Model=SignInModel, Label="SignInModel", ExtraModel=UserModel, ExtraLabel="UserModel") => ({
+  // List Controller
+  list: catchAsyncMiddleware(
+    async (request: express.Request, response: express.Response, next: express.NextFunction) => {
+
+      // List
+      const list = await Model.find()
+        .select("aImage aTitle bCreatedAt bUpdatedAt")
+        .populate("bCreatedBy", "eImage eFirstname eLastname eEmail")
+        .populate("bUpdatedBy", "eImage eFirstname eLastname eEmail");
+
+      // Create Cache
+      cacheCreateMiddleware({ 
+        key: cacheVariable.signInModel.list({ 
+          Label
+        }), 
+        data: list 
+      });
+
+      // Retrieve Total Documents
+      const total = await Model.countDocuments();
+
+      // Response
+      response.status(200).json({
+        success: true,
+        message: `${Label} Listed Successfully`,
+        total: total,
+        list: list,
+      })
+    }
+  ),
+
+  // Create Controller
+  create: catchAsyncMiddleware(
+    async (request: express.Request, response: express.Response, next: express.NextFunction) => {
+
+      // Create
+      const create = await Model.create({
+        aImage: request.body.aImage,
+        aTitle: request.body.aTitle,
+        aSubtitle: request.body.aSubtitle,
+        aDescription: request.body.aDescription,
+        aDetail: request.body.aDetail,
+        aStatus: request.body.aStatus === "Active" ? true : false,
+        aState: request.body.aState,
+
+        bCreatedAt: request.body.bCreatedAt,
+        bCreatedBy: request.body.bCreatedBy,
+      })
+
+      // Delete Cache
+      cacheDeleteMiddleware({ 
+        keyList: cacheVariable.signInModel.create({ 
+          Label  
+        }), 
+      });
+
+      // Create Event
+      eventCreateMiddleware({
+        Label,
+        data: create,
+        eventList: eventVariable.signInModel.create({
+          Label, 
+        }),
+        request
+      });
+
+      // Create Email
+      emailToCompanyMiddleware({
+        Label,
+        data: create,
+        textMessage: emailToCompanyVariable.signInModel.create({
+          Label, 
+          request 
+        }),
+      });
+
+      emailToUserMiddleware({
+        Label,
+        data: create,
+        textMessage: emailToUserVariable.signInModel.create({
+          Label, 
+          request 
+        }),
+        request
+      });
+
+      // Response
+      response.status(200).json({
+        success: true,
+        message: `${Label} Created Successfully`,
+        create: create
+      }) 
+    }
+  ),
+
+  // Retrieve Controller
+  retrieve: catchAsyncMiddleware(
+    async (request: express.Request, response: express.Response, next: express.NextFunction) => {
+
+      // Retrieve
+      const retrieve = await Model.findById(request.params.id)
+        .populate("bCreatedBy", "eImage eFirstname eLastname eEmail")
+        .populate("bUpdatedBy", "eImage eFirstname eLastname eEmail");
+
+      // Create Cache
+      cacheCreateMiddleware({ 
+        key: cacheVariable.signInModel.retrieve({ 
+          Label, 
+          request 
+        }), 
+        data: retrieve 
+      });
+
+      // Response
+      response.status(200).json({
+        success: true,
+        message: `${Label} Retrieved Successfully`,
+        retrieve: retrieve
+      })
+    }
+  ),
+
+  // Update Controller
+  update: catchAsyncMiddleware(
+    async (request: express.Request, response: express.Response, next: express.NextFunction) => {
+
+      // Update
+      const update = await Model.findByIdAndUpdate(
+        request.params.id, {
+          aImage: request.body.aImage,
+          aTitle: request.body.aTitle,
+          aSubtitle: request.body.aSubtitle,
+          aDescription: request.body.aDescription,
+          aDetail: request.body.aDetail,
+          aStatus: request.body.aStatus === "Active" ? true : false,
+          aState: request.body.aState,
+  
+          bUpdatedAt: request.body.bUpdatedAt,
+          bUpdatedBy: request.body.bUpdatedBy,  
+        }, {
+          new: true,
+          runValidators: true,
+          useFindAndMidify: false
+        }
+      )
+
+      // Delete Cache
+      cacheDeleteMiddleware({ 
+        keyList: cacheVariable.signInModel.update({ 
+          Label, 
+          request 
+        }), 
+      });
+
+      // Create Event
+      eventCreateMiddleware({
+        Label,
+        data: update,
+        eventList: eventVariable.signInModel.update({
+          Label, 
+          request 
+        }),
+        request
+      });
+
+      // Create Email
+      emailToCompanyMiddleware({
+        Label,
+        data: update,
+        textMessage: emailToCompanyVariable.signInModel.update({
+          Label, 
+          request 
+        }),
+      });
+
+      emailToUserMiddleware({
+        Label,
+        data: update,
+        textMessage: emailToUserVariable.signInModel.update({
+          Label, 
+          request 
+        }),
+        request
+      });
+
+      // Response
+      response.status(201).json({
+        success: true,
+        message: `${Label} Updated Successfully`,
+        update: update
+      })
+    }
+  ),
+
+  // Delete Controller
+  delete: catchAsyncMiddleware(
+    async (request: express.Request, response: express.Response, next: express.NextFunction) => {
+      
+      // Delete
+      const delete_object = await Model.findOneAndDelete({ _id: request.params.id })
+
+      // Delete Image
+      deleteImageMiddleware({
+        Label,
+        data: delete_object
+      })
+      
+      // Delete Cache
+      cacheDeleteMiddleware({ 
+        keyList: cacheVariable.signInModel.delete({ 
+          Label, 
+          request 
+        }), 
+      });
+      
+      // Create Event
+      eventCreateMiddleware({
+        Label,
+        data: delete_object,
+        eventList: eventVariable.signInModel.delete({
+          Label, 
+          request 
+        }),
+        request
+      });
+
+      // Create Email
+      emailToCompanyMiddleware({
+        Label,
+        data: delete_object,
+        textMessage: emailToCompanyVariable.signInModel.delete({
+          Label, 
+          request 
+        }),
+      });
+
+      emailToUserMiddleware({
+        Label,
+        data: delete_object,
+        textMessage: emailToUserVariable.signInModel.delete({
+          Label, 
+          request 
+        }),
+        request
+      });
+      
+      // Response
+      response.status(200).json({
+        success: true,
+        message: `${Label} Deleted Successfully`,
+        delete_object: delete_object
+      })
+    }
+  ),  
+
+  // Sign In Controller
+  signIn: catchAsyncMiddleware(
+    async (request: express.Request, response: express.Response, next: express.NextFunction) => {
+
+      // Retrieve
+      const retrieve = await ExtraModel.findOne({eEmail: request.body.eEmail}).select("+ePassword");
+
+      // Match Password
+			const isPasswordMatched = await retrieve?.fComparePasswordMethod(request.body.ePassword)
+
+      // Not Found
+			if (!isPasswordMatched) return next(new ErrorUtility("Invalid email or password", 400));
+
+      // Response
+			generateCookieUtility(200, "User Logged In Successfully", "user_sign_in", retrieve, response)
+    }
+  ),
+})
+
+export default signInController;
